@@ -48,6 +48,12 @@ class DeepSeaDash extends Phaser.Scene {
         Object.keys(this.treasures).forEach(zoneKey => {
             this.physics.add.collider(this.player, this.treasures[zoneKey], this.collectTreasure, null, this);
         });
+
+        this.score = 0; // Initialize score
+        this.scoreText = this.add.text(16, 16, 'Score: 0', { 
+            fontSize: '32px', 
+            fill: '#8FBC8F' // Dark Sea Green color
+        });
         
 
         this.anims.create({
@@ -114,8 +120,10 @@ class DeepSeaDash extends Phaser.Scene {
     collectTreasure(player, treasure) {
         const points = treasure.getData('value');
         treasure.destroy(); // Remove the treasure from the game
-
         this.collectedTreasures++; // Increment the count of collected treasures
+
+        this.score += points; // Add points to the score
+        this.scoreText.setText('Score: ' + this.score); // Update the score display
 
         if (this.collectedTreasures >= 9) {
             this.collectedTreasures = 0; // Reset the count
@@ -143,6 +151,7 @@ class DeepSeaDash extends Phaser.Scene {
                 const treasure = this.physics.add.sprite(x, y, `treasure${treasureIndex}`).setScale(2);
                 treasure.setData('value', zone.value);
                 this.treasures[zoneKey].add(treasure);
+                treasure.setData('value', zone.value);
     
                 // Tween for bobbing animation
                 this.tweens.add({
