@@ -22,11 +22,22 @@ class DeepSeaDash extends Phaser.Scene {
         for (let i = 1; i <= 9; i++) {
             this.load.image(`treasure${i}`, `assets/treasures/${i}.png`);
         }
+
+        this.load.spritesheet('jellyfish', 
+        'assets/SpearFishing Assets Pack/Sprites/JellyFish - 32x16/JellyFish.png', 
+        { frameWidth: 32, frameHeight: 16 }
+    );
     }
 
     create() {
-        this.add.image(400, 400, 'sea');
-        this.player = this.physics.add.sprite(100, 450, 'dude');
+
+        this.bg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'sea');
+    const scaleX = this.cameras.main.width / this.bg.width;
+    const scaleY = this.cameras.main.height / this.bg.height;
+    const scale = Math.max(scaleX, scaleY); // Use max to fill the entire canvas
+    this.bg.setScale(scale).setScrollFactor(0);
+    
+        this.player = this.physics.add.sprite(100, 200, 'dude');
         this.player.setScale(2); // Scale the player sprite by 1.5 times
 
         this.player.setGravityY(10);
@@ -42,6 +53,10 @@ class DeepSeaDash extends Phaser.Scene {
             bottom: this.physics.add.group()
         };
 
+        this.jellyfishGroup = this.physics.add.group();
+    this.spawnJellyfish();
+
+    this.physics.add.collider(this.player, this.jellyfishGroup, this.hitJelly, null, this);
     
         this.spawnTreasures();
 
@@ -90,7 +105,18 @@ class DeepSeaDash extends Phaser.Scene {
             repeat: -1
         });
 
+        this.anims.create({
+            key: 'game-over',
+            frames: [ { key: 'dude', frame: 6 } ],
+            frameRate: 20
+        });
 
+        this.anims.create({
+            key: 'swim',
+            frames: this.anims.generateFrameNumbers('jellyfish', { start: 0, end: 3 }), // Assuming 4 frames, numbered 0 to 3
+            frameRate: 10,
+            repeat: -1
+        });
         
     }
 
@@ -114,6 +140,25 @@ class DeepSeaDash extends Phaser.Scene {
             this.player.setVelocityY(120); // move down
             this.player.anims.play('down');
         }
+
+        this.jellyfishGroup.children.iterate((jellyfish) => {
+            if (!jellyfish.aiTimer || jellyfish.aiTimer < this.time.now) {
+                const velocityX = Phaser.Math.Between(-50, 50);
+                const velocityY = Phaser.Math.Between(-50, 50);
+                jellyfish.setVelocity(velocityX, velocityY);
+    
+                jellyfish.aiTimer = this.time.now + Phaser.Math.Between(2000, 5000);
+            }
+    
+            // Keep jellyfish within the bounds
+            if (jellyfish.x <= 0 || jellyfish.x >= this.sys.game.config.width) {
+                jellyfish.setVelocityX(-jellyfish.body.velocity.x);
+            }
+            if (jellyfish.y <= 0 || jellyfish.y >= this.sys.game.config.height) {
+                jellyfish.setVelocityY(-jellyfish.body.velocity.y);
+            }
+        });
+        
     }
     
 
@@ -128,7 +173,10 @@ class DeepSeaDash extends Phaser.Scene {
         if (this.collectedTreasures >= 9) {
             this.collectedTreasures = 0; // Reset the count
             this.spawnTreasures(); // Respawn the treasures
+            this.spawnJellyfish(); // Spawn another jellyfish
         }
+
+        
     
         // Update player's score or perform other actions
     }
@@ -146,7 +194,7 @@ class DeepSeaDash extends Phaser.Scene {
         const zone = this.zones[zoneKey];
         for (let i = 0; i < 3; i++) {
             const x = Phaser.Math.Between(margin, gameWidth - margin);
-            const y = Phaser.Math.Between(zone.minY + margin, zone.maxY - margin);
+            const y = Phaser.Math.Between(zone.minY + margin, Math.min(zone.maxY - margin, gameHeight - margin));
                 const treasureIndex = Phaser.Math.Between(1, 9); // Assuming 9 treasure sprites
                 const treasure = this.physics.add.sprite(x, y, `treasure${treasureIndex}`).setScale(2);
                 treasure.setData('value', zone.value);
@@ -164,14 +212,44 @@ class DeepSeaDash extends Phaser.Scene {
             }
         });
     }
+
+    spawnJellyfish() {
+        const playerX = this.player.x;
+        const gameWidth = this.sys.game.config.width;
+    
+        // Spawn on the opposite side of the player
+        const jellyfishX = playerX < gameWidth / 2 ? gameWidth - 50 : 50;
+        const jellyfishY = Phaser.Math.Between(50, this.sys.game.config.height - 50);
+    
+        const jellyfish = this.physics.add.sprite(jellyfishX, jellyfishY, 'jellyfish').setScale(2);
+        this.jellyfishGroup.add(jellyfish);
+    
+        const jellyfishWidth = 20;   // Adjusted width
+    const jellyfishHeight = 13;  // Adjusted height
+    const offsetX = (32 - jellyfishWidth) / 2;  // Centering the collision box
+    const offsetY = (16 - jellyfishHeight) / 2; // Centering the collision box
+    jellyfish.body.setSize(jellyfishWidth, jellyfishHeight, offsetX, offsetY);
+
+    return jellyfish;
+    }
+    
+    
+    hitJelly (player, jellyfish)
+{
+    this.physics.pause();
+
+    player.anims.play('game-over');
+
+    gameOver = true;
+}
     
     
 }
 
 const config = {
     type: Phaser.AUTO,
-    width: 1150,
-    height: 750,
+    width: 800,
+    height: 600,
     physics: {
         default: 'arcade',
         arcade: {
